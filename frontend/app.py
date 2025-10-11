@@ -24,38 +24,76 @@ if "session_id" not in st.session_state:
     st.session_state.session_id = f"streamlit-{datetime.now().timestamp()}"
 if "ws_url" not in st.session_state:
     st.session_state.ws_url = "ws://localhost:8000/ws"
+if "websocket" not in st.session_state:
+    st.session_state.websocket = None
+if "ws_connected" not in st.session_state:
+    st.session_state.ws_connected = False
+
+
+async def ensure_websocket_connection(session_id: str):
+    """Ensure WebSocket connection is established and return it."""
+    uri = f"{st.session_state.ws_url}/{session_id}"
+    
+    # If already connected, return existing connection
+    if st.session_state.websocket and st.session_state.ws_connected:
+        try:
+            # Test if connection is still alive
+            await st.session_state.websocket.ping()
+            return st.session_state.websocket
+        except:
+            # Connection dead, reconnect
+            st.session_state.ws_connected = False
+    
+    # Create new connection
+    try:
+        websocket = await websockets.connect(uri)
+        st.session_state.websocket = websocket
+        st.session_state.ws_connected = True
+        
+        # Consume welcome message
+        welcome = await asyncio.wait_for(websocket.recv(), timeout=5.0)
+        
+        return websocket
+    except Exception as e:
+        st.error(f"Failed to connect: {e}")
+        return None
 
 
 async def send_message_to_backend(message: str, session_id: str, status_callback=None):
-    """Send message to backend via WebSocket and receive responses."""
-    uri = f"{st.session_state.ws_url}/{session_id}"
+    """Send message to backend via persistent WebSocket connection."""
     responses = []
     
     try:
-        async with websockets.connect(uri) as websocket:
-            # Send message
-            await websocket.send(json.dumps({"message": message}))
-            
-            # Receive responses
-            while True:
-                try:
-                    response = await asyncio.wait_for(websocket.recv(), timeout=30.0)
-                    data = json.loads(response)
-                    responses.append(data)
-                    
-                    # Call status callback for real-time updates
-                    if status_callback and data.get("type") == "node":
-                        status_callback(data.get("content", ""))
-                    
-                    # Check if this is the final assistant response
-                    if data.get("type") == "assistant":
-                        break
-                except asyncio.TimeoutError:
+        # Get or create WebSocket connection
+        websocket = await ensure_websocket_connection(session_id)
+        if not websocket:
+            return [{"type": "error", "content": "Failed to establish connection"}]
+        
+        # Send message
+        await websocket.send(json.dumps({"message": message}))
+        
+        # Receive responses
+        while True:
+            try:
+                response = await asyncio.wait_for(websocket.recv(), timeout=30.0)
+                data = json.loads(response)
+                responses.append(data)
+                
+                # Call status callback for real-time updates
+                if status_callback and data.get("type") == "node":
+                    status_callback(data.get("content", ""))
+                
+                # Check if this is the final assistant response
+                if data.get("type") == "assistant":
                     break
-                except websockets.exceptions.ConnectionClosed:
-                    break
+            except asyncio.TimeoutError:
+                break
+            except websockets.exceptions.ConnectionClosed:
+                st.session_state.ws_connected = False
+                break
     except Exception as e:
         st.error(f"Connection error: {e}")
+        st.session_state.ws_connected = False
         return [{"type": "error", "content": str(e)}]
     
     return responses
@@ -109,6 +147,14 @@ def main():
         # Clear chat
         if st.button("🗑️ Clear Chat"):
             st.session_state.messages = []
+            # Close existing WebSocket connection
+            if st.session_state.websocket:
+                try:
+                    asyncio.run(st.session_state.websocket.close())
+                except:
+                    pass
+            st.session_state.websocket = None
+            st.session_state.ws_connected = False
             # Generate new session ID to reset backend state
             st.session_state.session_id = f"streamlit-{datetime.now().timestamp()}"
             st.rerun()
