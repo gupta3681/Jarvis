@@ -1,0 +1,234 @@
+from langchain_core.tools import tool
+from langchain_core.runnables import RunnableConfig
+from datetime import datetime
+import openpyxl
+from pathlib import Path
+from typing import Optional
+import os
+from dotenv import load_dotenv
+
+from memory.core_memory import get_core_memory
+from config import JarvisConfig
+
+# Load environment variables BEFORE importing Mem0
+load_dotenv()
+
+# Now import and initialize Mem0
+from mem0 import Memory
+
+# Initialize Mem0 for episodic/experience memory
+# By default, stores locally using Qdrant (vector DB) on disk
+# Data is persisted in ~/.mem0 directory
+memory = Memory()
+
+
+def get_user_id_from_config(config: Optional[RunnableConfig]) -> str:
+    """Extract user_id from RunnableConfig."""
+    if config and "configurable" in config:
+        jarvis_config = config["configurable"].get("jarvis_config")
+        if jarvis_config and isinstance(jarvis_config, JarvisConfig):
+            return jarvis_config.user_id or "default_user"
+    return "default_user"
+
+
+@tool
+def add_memory(information: str, config: Optional[RunnableConfig] = None) -> str:
+    """
+    Store information, experiences, or facts to memory.
+    Use this to remember things the user tells you about themselves, their preferences, experiences, etc.
+    
+    Examples:
+    - "I prefer morning workouts"
+    - "My favorite food is pizza"
+    - "I'm allergic to peanuts"
+    - "I work from home on Mondays and Wednesdays"
+    """
+    user_id = get_user_id_from_config(config)
+    result = memory.add(information, user_id=user_id)
+    return f"Stored memory: {information}"
+
+
+@tool
+def search_memory(query: str, config: Optional[RunnableConfig] = None) -> str:
+    """
+    Search through stored memories to find relevant information.
+    Use this to recall facts, preferences, or past experiences.
+    
+    Examples:
+    - "What are my workout preferences?"
+    - "What foods do I like?"
+    - "What am I allergic to?"
+    """
+    user_id = get_user_id_from_config(config)
+    print(f"[DEBUG] Searching memory for user: {user_id}, query: {query}")
+    
+    results = memory.search(query, user_id=user_id)
+    print(f"[DEBUG] Search results type: {type(results)}, raw: {results}")
+    
+    # Mem0 returns a dict with 'results' key containing the actual list
+    if isinstance(results, dict) and 'results' in results:
+        results = results['results']
+    
+    if not results or len(results) == 0:
+        return "No relevant memories found."
+    
+    print(f"[DEBUG] Extracted results: {results}")
+    
+    memories = []
+    # Safely iterate through results
+    for idx, result in enumerate(results[:5] if len(results) > 5 else results, 1):
+        if isinstance(result, dict) and 'memory' in result:
+            memories.append(f"{idx}. {result['memory']}")
+    
+    if not memories:
+        return "No relevant memories found."
+    
+    return "Found memories:\n" + "\n".join(memories)
+
+
+@tool
+def update_core_memory(category: str, key: str, value: str, config: Optional[RunnableConfig] = None) -> str:
+    """
+    Update core memory - fundamental facts that are always instantly available.
+    
+    Categories:
+    - identity: name, age, location, etc.
+    - work: job, company, work_schedule, etc.
+    - preferences: diet_type, workout_style, communication_style, etc.
+    - health: allergies, conditions, fitness_goals, etc.
+    - relationships: partner, family, friends, etc.
+    - context: timezone, language, etc.
+    
+    Examples:
+    - category="identity", key="name", value="John"
+    - category="work", key="company", value="Google"
+    - category="health", key="allergies", value="peanuts, shellfish"
+    """
+    user_id = get_user_id_from_config(config)
+    core_mem = get_core_memory(user_id)
+    core_mem.update(category, key, value)
+    return f"Updated core memory: {category}.{key} = {value}"
+
+
+@tool
+def get_core_memory_info(category: str = None, config: Optional[RunnableConfig] = None) -> str:
+    """
+    Retrieve core memory information.
+    If category is provided, returns that category. Otherwise returns all core memory.
+    """
+    user_id = get_user_id_from_config(config)
+    core_mem = get_core_memory(user_id)
+    
+    if category:
+        data = core_mem.get(category)
+        if not data:
+            return f"No core memory found for category: {category}"
+        return f"{category.upper()}:\n" + "\n".join([f"  - {k}: {v}" for k, v in data.items()])
+    
+    return core_mem.to_context_string()
+
+
+@tool
+def log_food(food_description: str, config: Optional[RunnableConfig] = None) -> str:
+    """
+    Log food intake. Takes a description of what was eaten.
+    Example: 'chicken breast 200g, rice 150g, broccoli 100g'
+    """
+    # user_id = get_user_id_from_config(config)
+    # file_path = Path(f"food_log_{user_id}.xlsx")
+    
+    # # Create or load workbook
+    # if file_path.exists():
+    #     wb = openpyxl.load_workbook(file_path)
+    #     ws = wb.active
+    # else:
+    #     wb = openpyxl.Workbook()
+    #     ws = wb.active
+    #     ws.append(["Timestamp", "Food Description", "Notes"])
+    
+    # # Add entry
+    # timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    # ws.append([timestamp, food_description, "Auto-logged"])
+    
+    # wb.save(file_path)
+    print("Pass through for now ")
+
+    return f"Logged food: {food_description}"
+
+
+@tool
+def log_workout(workout_description: str, config: Optional[RunnableConfig] = None) -> str:
+    """
+    Log workout activity. Takes a description of the workout.
+    Example: 'Running 5km, 30 minutes' or 'Bench press 3x10 @ 60kg'
+    """
+    # user_id = get_user_id_from_config(config)
+    # file_path = Path(f"workout_log_{user_id}.xlsx")
+    
+    # # Create or load workbook
+    # if file_path.exists():
+    #     wb = openpyxl.load_workbook(file_path)
+    #     ws = wb.active
+    # else:
+    #     wb = openpyxl.Workbook()
+    #     ws = wb.active
+    #     ws.append(["Timestamp", "Workout Description", "Notes"])
+    
+    # # Add entry
+    # timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    # ws.append([timestamp, workout_description, "Auto-logged"])
+    
+    # wb.save(file_path)
+    
+    print("Pass through for now ")
+    return f"Logged workout: {workout_description}"
+
+
+@tool 
+def think_tool(thought: str, config: Optional[RunnableConfig] = None) -> str:
+    """
+    Think about the current context, what you are trying to achieve, and how will you achieve it.
+    Use this to reason through complex problems step by step.
+    """
+    return f"Reflection: {thought}"
+
+
+@tool
+def task_complete(summary: str, config: Optional[RunnableConfig] = None) -> str:
+    """
+    Signal that the task is complete and provide a summary.
+    
+    Call this when:
+    - All requested actions have been completed
+    - You have the final answer for the user
+    - No more tools need to be executed
+    
+    Args:
+        summary: A brief summary of what was accomplished
+    
+    Example:
+    - "Task complete: Stored allergy information and logged breakfast"
+    - "Task complete: Retrieved workout preferences from memory"
+    """
+    return f"✅ Task Complete: {summary}"
+
+
+def get_tools():
+    """Return list of all available tools."""
+    return [
+        # Core memory (instant access)
+        update_core_memory,
+        get_core_memory_info,
+        # Episodic memory (semantic search)
+        add_memory,
+        search_memory,
+        # Health tracking
+        log_food,
+        log_workout,
+        # Agent control
+        think_tool,
+        task_complete
+    ]
+
+
+
