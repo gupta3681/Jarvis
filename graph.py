@@ -1,5 +1,6 @@
 from langgraph.graph import StateGraph, END
 from langgraph.graph.message import add_messages
+from langgraph.checkpoint.memory import MemorySaver
 from langchain_core.messages import HumanMessage, AIMessage, ToolMessage, SystemMessage
 from langchain_core.runnables import RunnableConfig
 from typing import TypedDict, Annotated, Sequence, Optional
@@ -157,7 +158,7 @@ def should_continue(state: AgentState, config: RunnableConfig = None):
 
 
 def create_graph():
-    """Create and compile the agent graph."""
+    """Create and compile the agent graph with conversation memory."""
     workflow = StateGraph(AgentState)
     
     # Add nodes
@@ -178,4 +179,7 @@ def create_graph():
     )
     workflow.add_edge("execute_tools", "tool_calling")
     
-    return workflow.compile()
+    # Add in-memory checkpointer for conversation history
+    checkpointer = MemorySaver()
+    
+    return workflow.compile(checkpointer=checkpointer)

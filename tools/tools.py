@@ -15,11 +15,32 @@ load_dotenv()
 
 # Now import and initialize Mem0
 from mem0 import Memory
+import os
 
-# Initialize Mem0 for episodic/experience memory
-# By default, stores locally using Qdrant (vector DB) on disk
-# Data is persisted in ~/.mem0 directory
-memory = Memory()
+# Initialize Mem0 for episodic/experience memory with PERSISTENT storage
+# Key: on_disk=True ensures vectors persist across restarts!
+qdrant_path = os.path.expanduser("~/.mem0/qdrant_data")
+print(f"[INFO] Initializing Mem0 with persistent storage at: {qdrant_path}")
+
+config = {
+    "vector_store": {
+        "provider": "qdrant",
+        "config": {
+            "collection_name": "jarvis_memories",
+            "path": qdrant_path,
+            "on_disk": True,  # THIS IS THE KEY! Enables disk persistence
+        }
+    }
+}
+
+memory = Memory.from_config(config)
+
+# Verify the collection is accessible
+try:
+    test_results = memory.get_all(user_id="__startup_test__")
+    print(f"[INFO] Memory system initialized successfully. Collection 'jarvis_memories' is accessible.")
+except Exception as e:
+    print(f"[WARNING] Memory system initialized but collection check failed: {e}")
 
 
 def get_user_id_from_config(config: Optional[RunnableConfig]) -> str:
@@ -44,7 +65,9 @@ def add_memory(information: str, config: Optional[RunnableConfig] = None) -> str
     - "I work from home on Mondays and Wednesdays"
     """
     user_id = get_user_id_from_config(config)
+    print(f"[DEBUG] add_memory - user_id: {user_id}, collection: jarvis_memories, information: {information}")
     result = memory.add(information, user_id=user_id)
+    print(f"[DEBUG] add_memory - result: {result}")
     return f"Stored memory: {information}"
 
 
@@ -60,10 +83,10 @@ def search_memory(query: str, config: Optional[RunnableConfig] = None) -> str:
     - "What am I allergic to?"
     """
     user_id = get_user_id_from_config(config)
-    print(f"[DEBUG] Searching memory for user: {user_id}, query: {query}")
+    print(f"[DEBUG] search_memory - user_id: {user_id}, collection: jarvis_memories, query: {query}")
     
     results = memory.search(query, user_id=user_id)
-    print(f"[DEBUG] Search results type: {type(results)}, raw: {results}")
+    print(f"[DEBUG] search_memory - results type: {type(results)}, count: {len(results.get('results', [])) if isinstance(results, dict) else 0}")
     
     # Mem0 returns a dict with 'results' key containing the actual list
     if isinstance(results, dict) and 'results' in results:

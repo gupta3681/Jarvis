@@ -68,6 +68,7 @@ async def root():
 @app.websocket("/ws/{session_id}")
 async def websocket_endpoint(websocket: WebSocket, session_id: str):
     """WebSocket endpoint for real-time communication."""
+    print(f"[WS] New connection - session_id: {session_id}")
     await manager.connect(websocket, session_id)
     
     # Create config with message queue and user_id
@@ -91,9 +92,12 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
         
         while True:
             # Receive message from client
+            print(f"[WS] Waiting for message - session_id: {session_id}")
             data = await websocket.receive_text()
             message_data = json.loads(data)
             user_input = message_data.get("message", "")
+            
+            print(f"[WS] Received message - session_id: {session_id}, message: {user_input[:50]}...")
             
             if not user_input:
                 continue
@@ -101,16 +105,21 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
             # Send acknowledgment
             config.send_message(f"Processing: {user_input}", "user")
             
-            # Run the graph with config
+            # Run the graph with config and thread_id for conversation history
+            # Use session_id as thread_id to maintain conversation per session
             initial_state = {
                 "messages": [HumanMessage(content=user_input)],
                 "iteration_count": 0
             }
             
+            # Add thread_id to config for checkpointer
+            runnable_config = config.to_runnable_config()
+            runnable_config["configurable"]["thread_id"] = session_id
+            
             # Execute graph asynchronously
             result = await graph.ainvoke(
                 initial_state,
-                config.to_runnable_config()
+                runnable_config
             )
             
             # Send final response (only the last AI message to user)
@@ -122,11 +131,12 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                     break
             
     except WebSocketDisconnect:
+        print(f"[WS] Client disconnected - session_id: {session_id}")
         manager.disconnect(session_id)
         monitor_task.cancel()
     except Exception as e:
         import traceback
-        print(f"WebSocket error: {e}")
+        print(f"[WS] Error - session_id: {session_id}, error: {e}")
         print(f"Full traceback:\n{traceback.format_exc()}")
         manager.disconnect(session_id)
         monitor_task.cancel()
