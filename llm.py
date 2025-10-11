@@ -46,9 +46,9 @@ def get_llm(temperature: float = 0.7, model: str = None):
 # Convenience instances
 def get_conversation_llm():
     """Get LLM configured for conversation (higher temperature)."""
-    return get_llm(temperature=0.7)
+    return get_llm(temperature=0)
 
 
 def get_tool_llm():
     """Get LLM configured for tool calling (lower temperature)."""
-    return get_llm(temperature=0.3)
+    return get_llm(temperature=0)
