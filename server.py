@@ -7,6 +7,7 @@ import json
 from config import JarvisConfig
 from graph import create_graph
 from langchain_core.messages import HumanMessage
+from memory.core_memory import CoreMemory
 
 
 app = FastAPI(title="Jarvis Personal Assistant API")
@@ -63,6 +64,31 @@ manager = ConnectionManager()
 @app.get("/")
 async def root():
     return {"message": "Jarvis Personal Assistant API", "status": "running"}
+
+
+@app.get("/api/core-memory")
+async def get_core_memory(user_id: str = "default_user"):
+    """
+    Get the current core memory for a user.
+    
+    Args:
+        user_id: User identifier (default: "default_user")
+    
+    Returns:
+        Core memory data as JSON
+    """
+    try:
+        core_memory = CoreMemory(user_id=user_id)
+        return {
+            "success": True,
+            "user_id": user_id,
+            "core_memory": core_memory.core
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e)
+        }
 
 
 @app.websocket("/ws/{session_id}")

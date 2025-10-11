@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Optional
 import os
 from dotenv import load_dotenv
+from langchain_community.tools.tavily_search import TavilySearchResults
 
 from memory.core_memory import get_core_memory
 from config import JarvisConfig
@@ -236,6 +237,46 @@ def task_complete(summary: str, config: Optional[RunnableConfig] = None) -> str:
     return f"✅ Task Complete: {summary}"
 
 
+@tool
+def web_search(query: str, config: Optional[RunnableConfig] = None) -> str:
+    """
+    Search the web for real-time information using Tavily.
+    Use this when you need current information, news, facts, or anything not in memory.
+    
+    Examples:
+    - "What's the weather in Boston today?"
+    - "Latest news about AI"
+    - "Best restaurants near me"
+    - "Current stock price of Apple"
+    
+    Args:
+        query: The search query
+    
+    Returns:
+        Search results with relevant information
+    """
+    try:
+        # Initialize Tavily search (max 3 results for conciseness)
+        tavily = TavilySearchResults(max_results=3)
+        results = tavily.invoke(query)
+        
+        if not results:
+            return "No search results found."
+        
+        # Format results nicely
+        formatted_results = []
+        for idx, result in enumerate(results, 1):
+            title = result.get('title', 'No title')
+            content = result.get('content', 'No content')
+            url = result.get('url', '')
+            formatted_results.append(f"{idx}. {title}\n   {content}\n   Source: {url}")
+        
+        return "Web search results:\n\n" + "\n\n".join(formatted_results)
+    
+    except Exception as e:
+        return f"Error searching the web: {str(e)}"
+
+
 def get_tools():
     """Return list of all available tools."""
     return [
@@ -245,6 +286,8 @@ def get_tools():
         # Episodic memory (semantic search)
         add_memory,
         search_memory,
+        # Web search
+        web_search,
         # Health tracking
         log_food,
         log_workout,

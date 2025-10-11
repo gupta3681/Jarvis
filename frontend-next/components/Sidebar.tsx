@@ -1,4 +1,5 @@
 import { Trash2, Circle, Sparkles, Power, Wifi } from 'lucide-react';
+import { CoreMemoryPanel } from './CoreMemoryPanel';
 
 interface SidebarProps {
   isConnected: boolean;
@@ -67,7 +68,10 @@ export function Sidebar({ isConnected, onClearChat, onDisconnect, onConnect }: S
       </div>
 
       {/* Spacer */}
-      <div className="flex-1" />
+      <div className="flex-1 overflow-y-auto">
+        {/* Core Memory Display */}
+        <CoreMemoryPanel />
+      </div>
 
       {/* Footer */}
       <div className="p-6 border-t border-white/10">
