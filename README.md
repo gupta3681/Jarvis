@@ -1,12 +1,12 @@
-# 🤖 Jarvis - Personal AI Assistant
+# 🤖 Jarvis (I know, I am super innovative with names; ) - Personal AI Assistant
 
-An **agentic AI assistant** built with LangGraph that autonomously manages your daily life through specialized handlers, persistent memory, and real-time communication. Jarvis doesn't just answer questions—it takes action, makes decisions, and learns from every interaction.
+An **agentic AI assistant** built with LangGraph that autonomously manages your daily life through specialized handlers, persistent memory, and real-time communication. Jarvis doesn't just answer questions— makes decisions and most importantly takes action.
 
 ## 🎯 Why Is This Agentic?
 
-Unlike traditional chatbots that simply respond to queries, Jarvis is a **true autonomous agent**:
+Unlike traditional chatbots that simply respond to queries, Jarvis is almost a **true autonomous agent**:
 
-- **🎭 Multi-Agent Architecture**: Main orchestrator delegates to specialized sub-agents (Gmail, Nutrition, Workout handlers)
+- **🎭 Multi-Agent Architecture**: Main orchestrator delegates to specialized sub-agents (Currently - Gmail, Nutrition, Workout handlers)
 - **🔄 Autonomous Decision-Making**: Plans multi-step tasks, chains tools, and adapts based on results
 - **🧠 Persistent Memory**: Remembers context across conversations and learns from interactions
 - **✅ Human-in-the-Loop**: Seeks approval for critical actions (sending emails, deleting events)
@@ -17,22 +17,21 @@ Unlike traditional chatbots that simply respond to queries, Jarvis is a **true a
 
 ### 🧠 **Two-Tier Memory System**
 - **Core Memory**: Instant access to identity, work, preferences (like human working memory)
-- **Episodic Memory**: Semantic search through past experiences using Mem0 + Qdrant vector DB
-- **Memory Persistence**: All memories stored locally and survive restarts
+- **Episodic Memory**: Semantic search through past experiences using Mem0
+- **Memory Persistence**: All memories stored locally (for now) and survive restarts 
 
 ### 🤖 **Specialized Handler System**
 - **Gmail Handler**: Search, read, compose, and send emails with approval workflow
-- **Nutrition Handler**: Log meals, track macros, get dietary suggestions
-- **Workout Handler**: Log exercises, track progress, analyze workout history
-- **Calendar Integration**: Create, view, update, and delete Google Calendar events
+- **Nutrition Handler**: Log meals, track macros, get dietary suggestions. All meals are logged to a google sheet.
+- **Workout Handler**: Log exercises, track progress, analyze workout history. All workouts are logged to a google sheet. 
+- **Calendar Integration**: Create, view, update, and delete Google Calendar events. 
 
 ### 🔄 **Agentic Capabilities**
 - **Autonomous Planning**: Uses `think_tool` for complex reasoning
 - **Multi-Step Execution**: Chains multiple tools to complete tasks
 - **Context Awareness**: Maintains conversation state across interactions
-- **Error Recovery**: Handles failures gracefully and suggests alternatives
 
-### 🌐 **Real-Time Architecture**
+### 🌐 **Overall Architecture**
 - **WebSocket Communication**: Live bidirectional updates
 - **Next.js Frontend**: Modern, responsive UI with voice support
 - **FastAPI Backend**: High-performance async server
@@ -172,22 +171,12 @@ For experiences, conversations, learned facts.
 - `think_tool()` - Internal reasoning and planning
 - `task_complete()` - Signal task completion
 
-## Development
-
-### Test CLI Mode
-```bash
-uv run python main.py
-```
-
-### Test WebSocket (HTML)
-Open `test_client.html` in browser after starting backend.
 
 ## 🛠️ Tech Stack
 
 ### **AI & Agent Framework**
 - **LangGraph**: Multi-agent orchestration and workflow management
-- **LangChain**: LLM framework and tool integration
-- **OpenAI GPT-4o**: Primary language model
+- **OpenAI GPT-4.1**: Primary language model
 - **LangSmith**: Tracing and debugging (optional)
 
 ### **Backend**
@@ -203,9 +192,7 @@ Open `test_client.html` in browser after starting backend.
 
 ### **Memory & Storage**
 - **Mem0**: Episodic memory with semantic search
-- **Qdrant**: Vector database for embeddings
-- **JSON**: Local core memory storage
-
+- 
 ### **Integrations**
 - **Gmail API**: Email management
 - **Google Calendar API**: Event scheduling
@@ -246,7 +233,7 @@ Jarvis: [Composes draft] → Shows preview → Waits for approval → Sends
 
 ### **Nutrition Tracking**
 ```
-You: "I had chicken biryani for lunch"
+You: "I had chicken and rice for lunch"
 Jarvis: Logs meal → Estimates macros → Updates daily totals → Suggests dinner
 ```
 
@@ -286,13 +273,9 @@ Jarvis: Retrieves workout data → Composes email → Shows draft → Sends
 
 ### **Planned Features** 📋
 - [ ] Proactive suggestions and reminders
-- [ ] Mobile app (React Native)
 - [ ] Slack/Discord integration
-- [ ] Voice output (TTS)
 - [ ] Multi-user support
-- [ ] Plugin system for custom handlers
-- [ ] Advanced analytics dashboard
-- [ ] Offline mode with sync
+
 
 ## 🤝 Contributing
 
