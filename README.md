@@ -293,5 +293,3 @@ Contributions are welcome! This project is a personal AI assistant but can serve
 MIT License - feel free to use this as a foundation for your own AI assistant!
 
 ---
-
-**Built with ❤️ using LangGraph and modern AI frameworks**
