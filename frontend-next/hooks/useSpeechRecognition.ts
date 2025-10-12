@@ -43,7 +43,27 @@ export function useSpeechRecognition(): UseSpeechRecognitionReturn {
           }
         }
 
-        setTranscript(finalTranscript || interimTranscript);
+        const currentTranscript = finalTranscript || interimTranscript;
+        setTranscript(currentTranscript);
+
+        // Update last speech time for auto-stop detection
+        if (currentTranscript.trim()) {
+          lastSpeechTimeRef.current = Date.now();
+          
+          // Clear existing timer
+          if (silenceTimerRef.current) {
+            clearTimeout(silenceTimerRef.current);
+          }
+
+          // Set new timer for auto-stop (1.5 seconds of silence)
+          if (autoStopRef.current) {
+            silenceTimerRef.current = setTimeout(() => {
+              if (recognitionRef.current && Date.now() - lastSpeechTimeRef.current >= 1500) {
+                recognitionRef.current.stop();
+              }
+            }, 1500);
+          }
+        }
       };
 
       recognition.onerror = (event: any) => {
@@ -64,12 +84,17 @@ export function useSpeechRecognition(): UseSpeechRecognitionReturn {
       if (recognitionRef.current) {
         recognitionRef.current.stop();
       }
+      if (silenceTimerRef.current) {
+        clearTimeout(silenceTimerRef.current);
+      }
     };
   }, []);
 
-  const startListening = useCallback(() => {
+  const startListening = useCallback((autoStop: boolean = false) => {
     if (recognitionRef.current && !isListening) {
       setTranscript('');
+      autoStopRef.current = autoStop;
+      lastSpeechTimeRef.current = Date.now();
       recognitionRef.current.start();
       setIsListening(true);
     }
@@ -79,6 +104,10 @@ export function useSpeechRecognition(): UseSpeechRecognitionReturn {
     if (recognitionRef.current && isListening) {
       recognitionRef.current.stop();
       setIsListening(false);
+    }
+    if (silenceTimerRef.current) {
+      clearTimeout(silenceTimerRef.current);
+      silenceTimerRef.current = null;
     }
   }, [isListening]);
 

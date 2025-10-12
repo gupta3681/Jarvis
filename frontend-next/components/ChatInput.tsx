@@ -1,4 +1,4 @@
-import { useState, KeyboardEvent, useEffect } from 'react';
+import { useState, KeyboardEvent, useEffect, useRef, useCallback } from 'react';
 import { Send, Mic, MicOff } from 'lucide-react';
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 
@@ -9,6 +9,9 @@ interface ChatInputProps {
 
 export function ChatInput({ onSend, disabled }: ChatInputProps) {
   const [input, setInput] = useState('');
+  const [autoSendEnabled, setAutoSendEnabled] = useState(true);
+  const previousTranscriptRef = useRef('');
+  
   const { 
     transcript, 
     isListening, 
@@ -25,22 +28,41 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
     }
   }, [transcript]);
 
-  const handleSend = () => {
+  const handleSend = useCallback(() => {
     if (input.trim() && !disabled) {
       onSend(input.trim());
       setInput('');
       resetTranscript();
+      previousTranscriptRef.current = '';
       if (isListening) {
         stopListening();
       }
     }
-  };
+  }, [input, disabled, onSend, resetTranscript, isListening, stopListening]);
+
+  // Auto-send when listening stops and we have a transcript
+  useEffect(() => {
+    if (!isListening && transcript && transcript !== previousTranscriptRef.current && autoSendEnabled) {
+      // Small delay to ensure transcript is complete
+      const timer = setTimeout(() => {
+        if (transcript.trim()) {
+          handleSend();
+        }
+      }, 300);
+      
+      return () => clearTimeout(timer);
+    }
+    
+    if (isListening) {
+      previousTranscriptRef.current = transcript;
+    }
+  }, [isListening, transcript, autoSendEnabled, handleSend]);
 
   const toggleListening = () => {
     if (isListening) {
       stopListening();
     } else {
-      startListening();
+      startListening(true); // Enable auto-stop on silence
     }
   };
 
