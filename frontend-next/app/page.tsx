@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useWebSocket } from '@/hooks/useWebSocket';
+import { useSpeechSynthesis } from '@/hooks/useSpeechSynthesis';
 import { ChatMessage } from '@/components/ChatMessage';
 import { ChatInput } from '@/components/ChatInput';
 import { Sidebar } from '@/components/Sidebar';
@@ -11,6 +12,7 @@ import { Sparkles } from 'lucide-react';
 export default function Home() {
   const [sessionId] = useState(() => `nextjs-${Date.now()}`);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const lastMessageCountRef = useRef(0);
 
   const { messages, sendMessage, isConnected, clearMessages, disconnect, connect } = useWebSocket(
     'ws://localhost:8000/ws',
@@ -18,10 +20,28 @@ export default function Home() {
     false // Don't auto-connect
   );
 
+  const { speak, enabled: ttsEnabled, setEnabled: setTtsEnabled } = useSpeechSynthesis();
+
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  // Auto-read new assistant messages
+  useEffect(() => {
+    const chatMessages = messages.filter((msg) => msg.type === 'user' || msg.type === 'assistant');
+    
+    // Check if there's a new assistant message
+    if (chatMessages.length > lastMessageCountRef.current) {
+      const lastMessage = chatMessages[chatMessages.length - 1];
+      
+      if (lastMessage.type === 'assistant' && ttsEnabled) {
+        speak(lastMessage.content);
+      }
+      
+      lastMessageCountRef.current = chatMessages.length;
+    }
+  }, [messages, speak, ttsEnabled]);
 
   const handleClearChat = () => {
     if (confirm('Are you sure you want to clear the chat history?')) {
@@ -48,6 +68,8 @@ export default function Home() {
         onClearChat={handleClearChat} 
         onDisconnect={handleDisconnect}
         onConnect={connect}
+        ttsEnabled={ttsEnabled}
+        onToggleTts={() => setTtsEnabled(!ttsEnabled)}
       />
 
       {/* Main Chat Area */}

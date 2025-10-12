@@ -1,4 +1,4 @@
-import { Trash2, Circle, Sparkles, Power, Wifi } from 'lucide-react';
+import { Trash2, Circle, Sparkles, Power, Wifi, Volume2, VolumeX } from 'lucide-react';
 import { CoreMemoryPanel } from './CoreMemoryPanel';
 
 interface SidebarProps {
@@ -6,9 +6,11 @@ interface SidebarProps {
   onClearChat: () => void;
   onDisconnect: () => void;
   onConnect: () => void;
+  ttsEnabled: boolean;
+  onToggleTts: () => void;
 }
 
-export function Sidebar({ isConnected, onClearChat, onDisconnect, onConnect }: SidebarProps) {
+export function Sidebar({ isConnected, onClearChat, onDisconnect, onConnect, ttsEnabled, onToggleTts }: SidebarProps) {
   return (
     <div className="w-72 bg-white/10 backdrop-blur-md border-r border-white/20 flex flex-col">
       {/* Header */}
@@ -37,13 +39,12 @@ export function Sidebar({ isConnected, onClearChat, onDisconnect, onConnect }: S
           </span>
         </div>
       </div>
-
       {/* Actions */}
       <div className="px-6 space-y-2">
         {!isConnected ? (
           <button
             onClick={onConnect}
-            className="w-full flex items-center gap-3 px-4 py-3 text-sm text-white/90 hover:bg-green-500/20 rounded-xl transition-all duration-200 hover:scale-105"
+            className="w-full flex items-center gap-3 px-4 py-3 text-sm text-white/90 hover:bg-white/10 rounded-xl transition-all duration-200 hover:scale-105"
           >
             <Wifi className="w-4 h-4" />
             Connect
@@ -51,12 +52,22 @@ export function Sidebar({ isConnected, onClearChat, onDisconnect, onConnect }: S
         ) : (
           <button
             onClick={onDisconnect}
-            className="w-full flex items-center gap-3 px-4 py-3 text-sm text-white/90 hover:bg-red-500/20 rounded-xl transition-all duration-200 hover:scale-105"
+            className="w-full flex items-center gap-3 px-4 py-3 text-sm text-white/90 hover:bg-white/10 rounded-xl transition-all duration-200 hover:scale-105"
           >
             <Power className="w-4 h-4" />
             Disconnect
           </button>
         )}
+        
+        <button
+          onClick={onToggleTts}
+          className={`w-full flex items-center gap-3 px-4 py-3 text-sm text-white/90 hover:bg-white/10 rounded-xl transition-all duration-200 hover:scale-105 ${
+            ttsEnabled ? 'bg-white/5' : ''
+          }`}
+        >
+          {ttsEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
+          Voice {ttsEnabled ? 'On' : 'Off'}
+        </button>
         
         <button
           onClick={onClearChat}

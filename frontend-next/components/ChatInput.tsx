@@ -1,5 +1,6 @@
-import { useState, KeyboardEvent } from 'react';
-import { Send, Sparkles } from 'lucide-react';
+import { useState, KeyboardEvent, useEffect } from 'react';
+import { Send, Mic, MicOff } from 'lucide-react';
+import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 
 interface ChatInputProps {
   onSend: (message: string) => void;
@@ -8,11 +9,38 @@ interface ChatInputProps {
 
 export function ChatInput({ onSend, disabled }: ChatInputProps) {
   const [input, setInput] = useState('');
+  const { 
+    transcript, 
+    isListening, 
+    startListening, 
+    stopListening, 
+    resetTranscript,
+    browserSupportsSpeechRecognition 
+  } = useSpeechRecognition();
+
+  // Update input with transcript
+  useEffect(() => {
+    if (transcript) {
+      setInput(transcript);
+    }
+  }, [transcript]);
 
   const handleSend = () => {
     if (input.trim() && !disabled) {
       onSend(input.trim());
       setInput('');
+      resetTranscript();
+      if (isListening) {
+        stopListening();
+      }
+    }
+  };
+
+  const toggleListening = () => {
+    if (isListening) {
+      stopListening();
+    } else {
+      startListening();
     }
   };
 
@@ -31,12 +59,34 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyPress={handleKeyPress}
-            placeholder="Message Jarvis..."
+            placeholder={isListening ? "Listening..." : "Message Jarvis..."}
             disabled={disabled}
             rows={1}
             className="w-full resize-none rounded-2xl bg-white/95 backdrop-blur-sm border border-white/60 px-5 py-4 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed shadow-lg text-gray-800 placeholder-gray-400"
           />
         </div>
+        
+        {/* Microphone Button */}
+        {browserSupportsSpeechRecognition && (
+          <button
+            onClick={toggleListening}
+            disabled={disabled}
+            className={`px-4 py-4 rounded-2xl transition-all duration-200 flex items-center gap-2 shadow-lg ${
+              isListening
+                ? 'bg-red-500 hover:bg-red-600 animate-pulse'
+                : 'bg-white/20 hover:bg-white/30 backdrop-blur-sm border border-white/40'
+            } text-white disabled:opacity-50 disabled:cursor-not-allowed`}
+            title={isListening ? 'Stop listening' : 'Start voice input'}
+          >
+            {isListening ? (
+              <MicOff className="w-5 h-5" />
+            ) : (
+              <Mic className="w-5 h-5" />
+            )}
+          </button>
+        )}
+        
+        {/* Send Button */}
         <button
           onClick={handleSend}
           disabled={disabled || !input.trim()}
