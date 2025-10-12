@@ -159,6 +159,7 @@ class NutritionHandlerState(TypedDict):
     clarification_needed: bool
     iteration_count: int
     is_complete: bool  # Flag to indicate subgraph is done
+    needs_main_agent: bool  # Flag to exit and let main agent handle
 
 
 # Nutrition logger tools
@@ -593,8 +594,26 @@ async def nutrition_agent_node(state: NutritionHandlerState, config: Optional[Ru
         for tc in (response.tool_calls if has_tool_calls else [])
     )
     
+    # Check if the response indicates we need the main agent
+    needs_main_agent = (
+        not has_tool_calls and 
+        response.content and 
+        "let me get help from my main assistant" in response.content.lower()
+    )
+    
+    if needs_main_agent:
+        # Exit and let main agent handle
+        return {
+            "messages": [response],
+            "food_data": food_data,
+            "clarification_needed": False,
+            "iteration_count": state.get("iteration_count", 0) + 1,
+            "is_complete": True,  # Mark complete to exit
+            "needs_main_agent": True,  # Signal to main agent
+        }
+    
     # If we asked a question (no tool calls), interrupt and wait for user response
-    if not has_tool_calls and not food_logged:
+    if not has_tool_calls:
         # Send the question to the user
         question = response.content
         # Interrupt to wait for user input
@@ -611,6 +630,7 @@ async def nutrition_agent_node(state: NutritionHandlerState, config: Optional[Ru
                 "clarification_needed": True,
                 "iteration_count": state.get("iteration_count", 0) + 1,
                 "is_complete": False,
+                "needs_main_agent": False,
             }
     
     return {
@@ -637,21 +657,25 @@ def should_continue(state: NutritionHandlerState) -> Literal["agent", "end"]:
 # Build the nutrition handler graph
 nutrition_workflow = StateGraph(NutritionHandlerState)
 
-# Add nodes
-nutrition_workflow.add_node("agent", nutrition_agent_node)
+# Add nodes with descriptive names for LangSmith
+nutrition_workflow.add_node(
+    "nutrition_agent", 
+    nutrition_agent_node,
+    metadata={"name": "Nutrition Agent (Food Logging)"}
+)
 
 # Set entry point
-nutrition_workflow.set_entry_point("agent")
+nutrition_workflow.set_entry_point("nutrition_agent")
 
 # Add conditional edges
 nutrition_workflow.add_conditional_edges(
-    "agent",
+    "nutrition_agent",
     should_continue,
     {
-        "agent": "agent",
+        "agent": "nutrition_agent",
         "end": END
     }
 )
 
-# Compile the graph
-nutrition_handler_graph = nutrition_workflow.compile()
+# Compile the graph with a descriptive name
+nutrition_handler_graph = nutrition_workflow.compile(name="Nutrition Handler Subgraph")

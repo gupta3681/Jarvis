@@ -159,6 +159,7 @@ class WorkoutHandlerState(TypedDict):
     clarification_needed: bool
     iteration_count: int
     is_complete: bool  # Flag to indicate subgraph is done
+    needs_main_agent: bool  # Flag to exit and let main agent handle
 
 
 # Workout logger tools
@@ -437,8 +438,26 @@ async def workout_agent_node(state: WorkoutHandlerState, config: Optional[Runnab
         for tc in (response.tool_calls if has_tool_calls else [])
     )
     
+    # Check if the response indicates we need the main agent
+    needs_main_agent = (
+        not has_tool_calls and 
+        response.content and 
+        "let me get help from my main assistant" in response.content.lower()
+    )
+    
+    if needs_main_agent:
+        # Exit and let main agent handle
+        return {
+            "messages": [response],
+            "workout_data": workout_data,
+            "clarification_needed": False,
+            "iteration_count": state.get("iteration_count", 0) + 1,
+            "is_complete": True,  # Mark complete to exit
+            "needs_main_agent": True,  # Signal to main agent
+        }
+    
     # If we asked a question (no tool calls), interrupt and wait for user response
-    if not has_tool_calls and not workout_logged:
+    if not has_tool_calls:
         # Send the question to the user
         question = response.content
         # Interrupt to wait for user input
@@ -455,6 +474,7 @@ async def workout_agent_node(state: WorkoutHandlerState, config: Optional[Runnab
                 "clarification_needed": True,
                 "iteration_count": state.get("iteration_count", 0) + 1,
                 "is_complete": False,
+                "needs_main_agent": False,
             }
     
     return {
@@ -492,25 +512,29 @@ def create_workout_handler_graph():
     """
     workflow = StateGraph(WorkoutHandlerState)
     
-    # Add single agent node
-    workflow.add_node("agent", workout_agent_node)
+    # Add single agent node with descriptive name for LangSmith
+    workflow.add_node(
+        "workout_agent", 
+        workout_agent_node,
+        metadata={"name": "Workout Agent (Exercise Logging)"}
+    )
     
     # Set entry point
-    workflow.set_entry_point("agent")
+    workflow.set_entry_point("workout_agent")
     
     # Add conditional edges - loop until complete
     workflow.add_conditional_edges(
-        "agent",
+        "workout_agent",
         should_continue,
         {
-            "agent": "agent",  # Continue asking questions
-            "end": END,        # Done when workout is logged
+            "agent": "workout_agent",  # Continue asking questions
+            "end": END,                # Done when workout is logged
         }
     )
     
     # Compile with checkpointer=True to inherit from parent graph
     # This allows interrupts to bubble up properly
-    return workflow.compile(checkpointer=True)
+    return workflow.compile(checkpointer=True, name="Workout Handler Subgraph")
 
 
 # Create the compiled graph

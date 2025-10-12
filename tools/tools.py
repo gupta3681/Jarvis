@@ -179,6 +179,23 @@ async def nutrition_handler(food_description: str, config: Optional[RunnableConf
     
     print(f"[DEBUG] nutrition_handler result keys: {result.keys()}")
     
+    # Check if handler needs main agent to take over
+    if result.get("needs_main_agent", False):
+        print("[DEBUG] Nutrition handler requesting main agent assistance")
+        # Extract the user's last question from messages
+        messages = result.get("messages", [])
+        user_question = None
+        # Find the last HumanMessage (user's question)
+        for msg in reversed(messages):
+            if hasattr(msg, '__class__') and msg.__class__.__name__ == 'HumanMessage':
+                user_question = msg.content
+                break
+        
+        # Return signal with the user's question embedded
+        if user_question:
+            return f"NEEDS_MAIN_AGENT: {user_question}"
+        return "NEEDS_MAIN_AGENT"
+    
     ## We don't need to handle interrupts here, the main graph will handle it
     
     # Return the last message content
@@ -214,6 +231,23 @@ async def workout_handler(workout_description: str, config: Optional[RunnableCon
     result = await workout_handler_graph.ainvoke(state, config)
     
     print(f"[DEBUG] log_workout result keys: {result.keys()}")
+    
+    # Check if handler needs main agent to take over
+    if result.get("needs_main_agent", False):
+        print("[DEBUG] Workout handler requesting main agent assistance")
+        # Extract the user's last question from messages
+        messages = result.get("messages", [])
+        user_question = None
+        # Find the last HumanMessage (user's question)
+        for msg in reversed(messages):
+            if hasattr(msg, '__class__') and msg.__class__.__name__ == 'HumanMessage':
+                user_question = msg.content
+                break
+        
+        # Return signal with the user's question embedded
+        if user_question:
+            return f"NEEDS_MAIN_AGENT: {user_question}"
+        return "NEEDS_MAIN_AGENT"
     
     ## We don't need to handle interrupts here, the main graph will handle it
     

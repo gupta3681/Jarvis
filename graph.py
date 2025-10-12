@@ -101,6 +101,35 @@ async def tool_execution_node(state: AgentState, config: RunnableConfig):
             if jarvis_config:
                 jarvis_config.send_message(f"✅ Tool result: {result}", "node")
             
+            # Check if handler needs main agent to take over
+            if result.startswith("NEEDS_MAIN_AGENT"):
+                # Handler detected off-topic question, let main agent continue
+                if jarvis_config:
+                    jarvis_config.send_message(f"🔄 Handler delegating to main agent", "node")
+                
+                # Extract the user's question from the result
+                user_question = result.replace("NEEDS_MAIN_AGENT: ", "").strip()
+                if user_question == "NEEDS_MAIN_AGENT":
+                    user_question = "Please help with the user's question."
+                
+                # Add a tool message acknowledging the delegation
+                tool_outputs.append(
+                    ToolMessage(
+                        content=f"Handler delegated to main agent.",
+                        tool_call_id=tool_call["id"]
+                    )
+                )
+                
+                # Add a new HumanMessage with the user's actual question
+                # This makes the agent treat it as a fresh user query
+                from langchain_core.messages import HumanMessage
+                tool_outputs.append(
+                    HumanMessage(content=user_question)
+                )
+                
+                # Continue to next tool call (or return if this was the only one)
+                continue
+            
             # Check if this was task_complete
             if tool_name == "task_complete":
                 task_completed = True
@@ -166,25 +195,25 @@ def create_graph():
     """Create and compile the agent graph with conversation memory."""
     workflow = StateGraph(AgentState)
     
-    # Add nodes
-    workflow.add_node("tool_calling", tool_calling_node)
-    workflow.add_node("execute_tools", tool_execution_node)
+    # Add nodes with descriptive names for LangSmith
+    workflow.add_node("main_agent", tool_calling_node, metadata={"name": "Main Agent (Tool Selection)"})
+    workflow.add_node("tool_executor", tool_execution_node, metadata={"name": "Tool Executor"})
     
     # Set entry point
-    workflow.set_entry_point("tool_calling")
+    workflow.set_entry_point("main_agent")
     
     # Add edges
     workflow.add_conditional_edges(
-        "tool_calling",
+        "main_agent",
         should_continue,
         {
-            "execute_tools": "execute_tools",
+            "execute_tools": "tool_executor",
             "end": END
         }
     )
-    workflow.add_edge("execute_tools", "tool_calling")
+    workflow.add_edge("tool_executor", "main_agent")
     
     # Add in-memory checkpointer for conversation history
     checkpointer = MemorySaver()
     
-    return workflow.compile(checkpointer=checkpointer)
+    return workflow.compile(checkpointer=checkpointer, name="Jarvis Main Agent")
