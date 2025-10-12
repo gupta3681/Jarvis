@@ -18,4 +18,6 @@ dependencies = [
     "python-dotenv>=1.0.0",
     "langsmith>=0.2.0",
     "langchain-community>=0.3.31",
+    "gspread>=6.0.0",
+    "google-auth>=2.0.0",
 ]

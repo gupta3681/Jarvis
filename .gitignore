@@ -28,6 +28,10 @@ env/
 food_log.xlsx
 workout_log.xlsx
 
+# Google Sheets credentials (NEVER COMMIT THIS!)
+google-sheets-credentials.json
+*-credentials.json
+
 # Logs
 *.log
 

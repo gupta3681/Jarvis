@@ -93,7 +93,7 @@ async def tool_execution_node(state: AgentState, config: RunnableConfig):
             tool = tools[tool_name]
             
             # Use ainvoke for async tools, invoke for sync tools
-            if tool_name == "log_workout":
+            if tool_name in ["workout_handler", "nutrition_handler"]:
                 result = await tool.ainvoke(tool_call["args"], config)
             else:
                 result = tool.invoke(tool_call["args"])

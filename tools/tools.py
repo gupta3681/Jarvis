@@ -8,6 +8,7 @@ import os
 from dotenv import load_dotenv
 from langchain_community.tools.tavily_search import TavilySearchResults
 from subgraphs.workout_handler import workout_handler_graph
+from subgraphs.nutrition_handler import nutrition_handler_graph
 from langchain_core.messages import HumanMessage
 from memory.core_memory import get_core_memory
 from config import JarvisConfig
@@ -154,35 +155,42 @@ def get_core_memory_info(category: str = None, config: Optional[RunnableConfig] 
 
 
 @tool
-def log_food(food_description: str, config: Optional[RunnableConfig] = None) -> str:
+async def nutrition_handler(food_description: str, config: Optional[RunnableConfig] = None) -> str:
     """
-    Log food intake. Takes a description of what was eaten.
-    Example: 'chicken breast 200g, rice 150g, broccoli 100g'
+    Log food intake and handle all nutrition-related tasks. Invokes a specialized subgraph to gather details and log food.
+    Example: 'chicken breast 200g for lunch' or 'oatmeal with berries for breakfast'
+    
+    This tool uses LangGraph interrupts to ask clarifying questions.
+    The subgraph will handle the conversation internally.
     """
-    # user_id = get_user_id_from_config(config)
-    # file_path = Path(f"food_log_{user_id}.xlsx")
     
-    # # Create or load workbook
-    # if file_path.exists():
-    #     wb = openpyxl.load_workbook(file_path)
-    #     ws = wb.active
-    # else:
-    #     wb = openpyxl.Workbook()
-    #     ws = wb.active
-    #     ws.append(["Timestamp", "Food Description", "Notes"])
+    # Initialize state
+    state = {
+        "messages": [HumanMessage(content=food_description)],
+        "food_data": {},
+        "clarification_needed": True,
+        "iteration_count": 0,
+        "is_complete": False,
+    }
     
-    # # Add entry
-    # timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    # ws.append([timestamp, food_description, "Auto-logged"])
+    # Invoke the nutrition handler subgraph - it will inherit the parent's checkpointer
+    # and thread_id automatically through the config
+    result = await nutrition_handler_graph.ainvoke(state, config)
     
-    # wb.save(file_path)
-    print("Pass through for now ")
-
-    return f"Logged food: {food_description}"
+    print(f"[DEBUG] nutrition_handler result keys: {result.keys()}")
+    
+    ## We don't need to handle interrupts here, the main graph will handle it
+    
+    # Return the last message content
+    if result.get("messages"):
+        last_msg = result["messages"][-1]
+        return last_msg.content if hasattr(last_msg, 'content') else str(last_msg)
+    
+    return "Food logging completed."
 
 
 @tool
-async def log_workout(workout_description: str, config: Optional[RunnableConfig] = None) -> str:
+async def workout_handler(workout_description: str, config: Optional[RunnableConfig] = None) -> str:
     """
     Log workout activity. Invokes a specialized subgraph to gather details and log the workout.
     Example: 'Running 5km, 30 minutes' or 'Bench press 3x10 @ 60kg'
@@ -296,9 +304,9 @@ def get_tools():
         search_memory,
         # Web search
         web_search,
-        # Health tracking
-        log_food,
-        log_workout,
+        # Handlers
+        nutrition_handler,
+        workout_handler,
         # Agent control
         think_tool,
         task_complete
