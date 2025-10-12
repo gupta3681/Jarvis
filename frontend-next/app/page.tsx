@@ -83,10 +83,10 @@ export default function Home() {
                   <Sparkles className="w-10 h-10 text-white" />
                 </div>
                 <h2 className="text-3xl font-bold text-white mb-3">
-                  Welcome to Jarvis
+                  Hey Aryan!
                 </h2>
                 <p className="text-white/70 text-lg">
-                  Your personal AI assistant with memory. Ask me anything!
+                  I am your personal AI assistant, here to help you with anything you need!
                 </p>
               </div>
             ) : (
