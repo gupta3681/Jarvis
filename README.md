@@ -9,9 +9,10 @@ A personal AI assistant built with LangGraph, featuring a two-tier memory system
   - **Episodic Memory**: Semantic search through experiences using Mem0
   
 - 💬 **Conversational AI**: Natural chitchat + task execution
-- 🔧 **Tool Calling**: Food logging, workout tracking, memory management
+- 🔧 **Tool Calling**: Food logging, workout tracking, calendar management, memory management
+- 📅 **Google Calendar Integration**: Create, view, update, and delete calendar events
 - 🌐 **Real-time WebSocket**: Live updates from backend to frontend
-- 🎨 **Streamlit UI**: Clean, modern chat interface
+- 🎨 **Modern UI**: Clean Next.js interface with voice support
 
 ## Quick Start
 
@@ -40,7 +41,14 @@ cp .env.example .env
 uv run python setup_my_memory.py
 ```
 
-### 4. Run Jarvis
+### 4. Setup Google Calendar (Optional)
+See [CALENDAR_SETUP.md](CALENDAR_SETUP.md) for detailed instructions.
+
+```bash
+python setup_calendar.py
+```
+
+### 5. Run Jarvis
 
 **Option A: Run Both Backend + Frontend**
 ```bash
@@ -97,12 +105,26 @@ For experiences, conversations, learned facts.
 
 ## Tools Available
 
+### Memory Tools
 - `update_core_memory()` - Set instant-access facts
 - `get_core_memory_info()` - View core memory
 - `add_memory()` - Store experiences
 - `search_memory()` - Search through memories
-- `log_food()` - Track food intake
-- `log_workout()` - Track workouts
+
+### Calendar Tools
+- `create_calendar_event()` - Create new events
+- `list_calendar_events()` - View upcoming events
+- `delete_calendar_event()` - Remove events
+- `update_calendar_event()` - Modify events
+
+### Lifestyle Handlers
+- `nutrition_handler()` - Food logging and nutrition tracking
+- `workout_handler()` - Exercise logging and workout tracking
+
+### Utility Tools
+- `web_search()` - Search the web for real-time information
+- `think_tool()` - Internal reasoning and planning
+- `task_complete()` - Signal task completion
 
 ## Development
 

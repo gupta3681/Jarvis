@@ -12,6 +12,12 @@ from subgraphs.nutrition_handler import nutrition_handler_graph
 from langchain_core.messages import HumanMessage
 from memory.core_memory import get_core_memory
 from config import JarvisConfig
+from tools.calendar_tools import (
+    create_calendar_event,
+    list_calendar_events,
+    delete_calendar_event,
+    update_calendar_event
+)
 
 # Load environment variables BEFORE importing Mem0
 load_dotenv()
@@ -338,6 +344,11 @@ def get_tools():
         search_memory,
         # Web search
         web_search,
+        # Calendar
+        create_calendar_event,
+        list_calendar_events,
+        delete_calendar_event,
+        update_calendar_event,
         # Handlers
         nutrition_handler,
         workout_handler,
