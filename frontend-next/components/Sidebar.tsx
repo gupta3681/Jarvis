@@ -87,7 +87,7 @@ export function Sidebar({ isConnected, onClearChat, onDisconnect, onConnect, tts
       {/* Footer */}
       <div className="p-6 border-t border-white/10">
         <p className="text-xs text-white/50 text-center">
-          Powered by LangGraph & Mem0
+          Created by Aryan
         </p>
       </div>
     </div>
