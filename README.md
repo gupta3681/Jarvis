@@ -1,18 +1,42 @@
 # 🤖 Jarvis - Personal AI Assistant
 
-A personal AI assistant built with LangGraph, featuring a two-tier memory system and real-time WebSocket communication.
+An **agentic AI assistant** built with LangGraph that autonomously manages your daily life through specialized handlers, persistent memory, and real-time communication. Jarvis doesn't just answer questions—it takes action, makes decisions, and learns from every interaction.
 
-## Features
+## 🎯 Why Is This Agentic?
 
-- 🧠 **Two-Tier Memory System**
-  - **Core Memory**: Instant access to identity, work, preferences (like human memory)
-  - **Episodic Memory**: Semantic search through experiences using Mem0
-  
-- 💬 **Conversational AI**: Natural chitchat + task execution
-- 🔧 **Tool Calling**: Food logging, workout tracking, calendar management, memory management
-- 📅 **Google Calendar Integration**: Create, view, update, and delete calendar events
-- 🌐 **Real-time WebSocket**: Live updates from backend to frontend
-- 🎨 **Modern UI**: Clean Next.js interface with voice support
+Unlike traditional chatbots that simply respond to queries, Jarvis is a **true autonomous agent**:
+
+- **🎭 Multi-Agent Architecture**: Main orchestrator delegates to specialized sub-agents (Gmail, Nutrition, Workout handlers)
+- **🔄 Autonomous Decision-Making**: Plans multi-step tasks, chains tools, and adapts based on results
+- **🧠 Persistent Memory**: Remembers context across conversations and learns from interactions
+- **✅ Human-in-the-Loop**: Seeks approval for critical actions (sending emails, deleting events)
+- **🔧 Tool Use**: Dynamically selects and executes tools based on user intent
+- **🎯 Goal-Oriented**: Breaks down complex requests into actionable steps
+
+## ✨ Key Features
+
+### 🧠 **Two-Tier Memory System**
+- **Core Memory**: Instant access to identity, work, preferences (like human working memory)
+- **Episodic Memory**: Semantic search through past experiences using Mem0 + Qdrant vector DB
+- **Memory Persistence**: All memories stored locally and survive restarts
+
+### 🤖 **Specialized Handler System**
+- **Gmail Handler**: Search, read, compose, and send emails with approval workflow
+- **Nutrition Handler**: Log meals, track macros, get dietary suggestions
+- **Workout Handler**: Log exercises, track progress, analyze workout history
+- **Calendar Integration**: Create, view, update, and delete Google Calendar events
+
+### 🔄 **Agentic Capabilities**
+- **Autonomous Planning**: Uses `think_tool` for complex reasoning
+- **Multi-Step Execution**: Chains multiple tools to complete tasks
+- **Context Awareness**: Maintains conversation state across interactions
+- **Error Recovery**: Handles failures gracefully and suggests alternatives
+
+### 🌐 **Real-Time Architecture**
+- **WebSocket Communication**: Live bidirectional updates
+- **Next.js Frontend**: Modern, responsive UI with voice support
+- **FastAPI Backend**: High-performance async server
+- **Streaming Responses**: Real-time token streaming for natural conversations
 
 ## Quick Start
 
@@ -67,22 +91,44 @@ Terminal 2 (Frontend):
 uv run streamlit run frontend/app.py
 ```
 
-## Project Structure
+## 🏗️ Architecture
 
+### **Multi-Agent System**
+```
+User Request
+    ↓
+Main Agent (Orchestrator)
+    ├─→ Gmail Handler (Email management)
+    ├─→ Nutrition Handler (Food tracking)
+    ├─→ Workout Handler (Exercise logging)
+    ├─→ Calendar Tools (Event management)
+    └─→ Memory Tools (Context persistence)
+```
+
+### **Project Structure**
 ```
 Jarvis/
-├── frontend/           # Streamlit UI
-│   └── app.py
-├── memory/            # Memory systems
-│   └── core_memory.py
-├── tools/             # Agent tools
-│   └── tools.py
-├── prompts/           # LLM prompts
-│   └── main_agent_prompt.py
-├── graph.py           # LangGraph workflow
-├── server.py          # FastAPI WebSocket server
-├── config.py          # Configuration
-└── main.py            # CLI interface
+├── frontend/              # Next.js UI
+│   ├── app/              # App router pages
+│   ├── components/       # React components
+│   └── lib/              # Utilities
+├── subgraphs/            # Specialized agent handlers
+│   ├── gmail_handler.py  # Email management agent
+│   ├── nutrition_handler.py
+│   └── workout_handler.py
+├── tools/                # Tool implementations
+│   ├── gmail_tools.py    # Gmail API integration
+│   ├── calendar_tools.py # Google Calendar API
+│   ├── memory_tools.py   # Memory operations
+│   └── web_search.py     # Web search capability
+├── prompts/              # Agent system prompts
+│   ├── main_agent_prompt.py
+│   └── gmail_handler_prompt.py
+├── memory/               # Memory systems
+│   └── core_memory.py    # Core memory management
+├── graph.py              # Main LangGraph workflow
+├── server.py             # FastAPI WebSocket server
+└── main.py               # CLI interface
 ```
 
 ## Memory System
@@ -136,12 +182,133 @@ uv run python main.py
 ### Test WebSocket (HTML)
 Open `test_client.html` in browser after starting backend.
 
-## Tech Stack
+## 🛠️ Tech Stack
 
-- **LangGraph**: Agent orchestration
-- **LangChain**: LLM framework
-- **LangSmith**: Tracing and monitoring (optional)
-- **FastAPI**: WebSocket backend
-- **Streamlit**: Frontend UI
-- **Mem0**: Episodic memory
-- **OpenAI**: LLM (gpt-4o)
+### **AI & Agent Framework**
+- **LangGraph**: Multi-agent orchestration and workflow management
+- **LangChain**: LLM framework and tool integration
+- **OpenAI GPT-4o**: Primary language model
+- **LangSmith**: Tracing and debugging (optional)
+
+### **Backend**
+- **FastAPI**: High-performance async WebSocket server
+- **Python 3.11+**: Core runtime
+- **UV**: Fast Python package manager
+
+### **Frontend**
+- **Next.js 14**: React framework with App Router
+- **TypeScript**: Type-safe development
+- **Tailwind CSS**: Utility-first styling
+- **WebSocket**: Real-time bidirectional communication
+
+### **Memory & Storage**
+- **Mem0**: Episodic memory with semantic search
+- **Qdrant**: Vector database for embeddings
+- **JSON**: Local core memory storage
+
+### **Integrations**
+- **Gmail API**: Email management
+- **Google Calendar API**: Event scheduling
+- **Tavily API**: Web search capability
+
+## 🎓 Key Concepts
+
+### **Handler Pattern**
+Specialized sub-agents handle domain-specific tasks:
+- Each handler has its own prompt, tools, and state
+- Handlers can interrupt for user input (approval workflows)
+- Main agent orchestrates between handlers
+
+### **Memory Architecture**
+- **Core Memory**: Fast key-value store for essential facts
+- **Episodic Memory**: Vector-based semantic search for experiences
+- **Conversation State**: Maintained across interactions
+
+### **Human-in-the-Loop**
+Critical actions require explicit approval:
+- Email sending (shows draft first)
+- Calendar event deletion
+- Sensitive data modifications
+
+### **Tool Composition**
+Tools are composable and chainable:
+```python
+search_memory("workouts") → compose_email(data) → send_email()
+```
+
+## 💡 Example Use Cases
+
+### **Email Management**
+```
+You: "Send an email to john@example.com about our meeting"
+Jarvis: [Composes draft] → Shows preview → Waits for approval → Sends
+```
+
+### **Nutrition Tracking**
+```
+You: "I had chicken biryani for lunch"
+Jarvis: Logs meal → Estimates macros → Updates daily totals → Suggests dinner
+```
+
+### **Workout Logging**
+```
+You: "Log my workout: bench press 3x10 at 185lbs"
+Jarvis: Records exercise → Tracks progress → Compares to previous sessions
+```
+
+### **Calendar Management**
+```
+You: "Schedule a meeting with Sarah tomorrow at 2pm"
+Jarvis: Creates event → Adds to Google Calendar → Confirms creation
+```
+
+### **Complex Multi-Step Tasks** (Coming Soon)
+```
+You: "Email my trainer about today's workout"
+Jarvis: Retrieves workout data → Composes email → Shows draft → Sends
+```
+
+## 🚀 Roadmap
+
+### **Current Features** ✅
+- [x] Multi-agent architecture with specialized handlers
+- [x] Gmail integration with approval workflow
+- [x] Nutrition and workout tracking
+- [x] Google Calendar integration
+- [x] Two-tier memory system
+- [x] Real-time WebSocket communication
+- [x] Voice input support
+
+### **In Progress** 🔄
+- [ ] Multi-step task orchestration (handler chaining)
+- [ ] Cross-handler data sharing
+- [ ] Enhanced context awareness
+
+### **Planned Features** 📋
+- [ ] Proactive suggestions and reminders
+- [ ] Mobile app (React Native)
+- [ ] Slack/Discord integration
+- [ ] Voice output (TTS)
+- [ ] Multi-user support
+- [ ] Plugin system for custom handlers
+- [ ] Advanced analytics dashboard
+- [ ] Offline mode with sync
+
+## 🤝 Contributing
+
+Contributions are welcome! This project is a personal AI assistant but can serve as a template for building your own agentic systems.
+
+### **Areas for Contribution**
+- New handlers (e.g., finance, travel, shopping)
+- Additional integrations (Notion, Spotify, etc.)
+- UI/UX improvements
+- Performance optimizations
+- Documentation
+
+## 📄 License
+
+MIT License - feel free to use this as a foundation for your own AI assistant!
+
+---
+
+**Built with ❤️ using LangGraph and modern AI frameworks**

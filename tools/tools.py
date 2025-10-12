@@ -9,6 +9,7 @@ from dotenv import load_dotenv
 from langchain_community.tools.tavily_search import TavilySearchResults
 from subgraphs.workout_handler import workout_handler_graph
 from subgraphs.nutrition_handler import nutrition_handler_graph
+from subgraphs.gmail_handler import gmail_handler_graph
 from langchain_core.messages import HumanMessage
 from memory.core_memory import get_core_memory
 from config import JarvisConfig
@@ -264,6 +265,61 @@ async def workout_handler(workout_description: str, config: Optional[RunnableCon
     return final_message
 
 
+@tool
+async def gmail_handler(email_request: str, config: Optional[RunnableConfig] = None) -> str:
+    """
+    Manage emails - search, read, send, or reply to emails.
+    Invokes a specialized subgraph to handle email operations with user approval.
+    
+    Examples:
+    - 'Show me emails from john@example.com'
+    - 'Read my unread emails'
+    - 'Send an email to sarah about the meeting'
+    - 'Reply to John's email about the project'
+    
+    This tool uses LangGraph interrupts to ask for user approval before sending emails.
+    """
+    
+    # Initialize state
+    state = {
+        "messages": [HumanMessage(content=email_request)],
+        "email_data": {},
+        "action_pending": False,
+        "iteration_count": 0,
+        "is_complete": False,
+        "needs_main_agent": False,
+    }
+    
+    # Invoke the gmail handler subgraph
+    result = await gmail_handler_graph.ainvoke(state, config)
+    
+    print(f"[DEBUG] gmail_handler result keys: {result.keys()}")
+    
+    # Check if handler needs main agent to take over
+    if result.get("needs_main_agent", False):
+        print("[DEBUG] Gmail handler requesting main agent assistance")
+        # Extract the user's last question from messages
+        messages = result.get("messages", [])
+        user_question = None
+        # Find the last HumanMessage (user's question)
+        for msg in reversed(messages):
+            if hasattr(msg, '__class__') and msg.__class__.__name__ == 'HumanMessage':
+                user_question = msg.content
+                break
+        
+        # Return signal with the user's question embedded
+        if user_question:
+            return f"NEEDS_MAIN_AGENT: {user_question}"
+        return "NEEDS_MAIN_AGENT"
+    
+    # Return the last message content
+    if result.get("messages"):
+        last_msg = result["messages"][-1]
+        return last_msg.content if hasattr(last_msg, 'content') else str(last_msg)
+    
+    return "Email operation completed."
+
+
 @tool 
 def think_tool(thought: str, config: Optional[RunnableConfig] = None) -> str:
     """
@@ -352,6 +408,7 @@ def get_tools():
         # Handlers
         nutrition_handler,
         workout_handler,
+        gmail_handler,
         # Agent control
         think_tool,
         task_complete

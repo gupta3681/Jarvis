@@ -30,6 +30,7 @@ workout_log.xlsx
 
 # Google Sheets credentials (NEVER COMMIT THIS!)
 google-sheets-credentials.json
+calendar_credentials.json
 *-credentials.json
 
 .json
