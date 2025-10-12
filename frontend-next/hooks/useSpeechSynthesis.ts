@@ -1,75 +1,75 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 
 interface UseSpeechSynthesisReturn {
   speak: (text: string) => void;
   stop: () => void;
   isSpeaking: boolean;
-  voices: SpeechSynthesisVoice[];
-  selectedVoice: SpeechSynthesisVoice | null;
-  setSelectedVoice: (voice: SpeechSynthesisVoice) => void;
-  rate: number;
-  setRate: (rate: number) => void;
-  pitch: number;
-  setPitch: (pitch: number) => void;
   enabled: boolean;
   setEnabled: (enabled: boolean) => void;
 }
 
 export function useSpeechSynthesis(): UseSpeechSynthesisReturn {
   const [isSpeaking, setIsSpeaking] = useState(false);
-  const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
-  const [selectedVoice, setSelectedVoice] = useState<SpeechSynthesisVoice | null>(null);
-  const [rate, setRate] = useState(1.0);
-  const [pitch, setPitch] = useState(1.0);
   const [enabled, setEnabled] = useState(true);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  useEffect(() => {
-    const loadVoices = () => {
-      const availableVoices = window.speechSynthesis.getVoices();
-      setVoices(availableVoices);
-      
-      // Try to find a good default voice (prefer English voices)
-      const defaultVoice = availableVoices.find(voice => 
-        voice.lang.startsWith('en') && voice.name.includes('Google')
-      ) || availableVoices.find(voice => 
-        voice.lang.startsWith('en')
-      ) || availableVoices[0];
-      
-      setSelectedVoice(defaultVoice);
-    };
-
-    loadVoices();
-    window.speechSynthesis.onvoiceschanged = loadVoices;
-
-    return () => {
-      window.speechSynthesis.cancel();
-    };
-  }, []);
-
-  const speak = useCallback((text: string) => {
+  const speak = useCallback(async (text: string) => {
     if (!enabled || !text) return;
 
-    // Cancel any ongoing speech
-    window.speechSynthesis.cancel();
-
-    const utterance = new SpeechSynthesisUtterance(text);
-    
-    if (selectedVoice) {
-      utterance.voice = selectedVoice;
+    // Stop any currently playing audio
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
     }
-    
-    utterance.rate = rate;
-    utterance.pitch = pitch;
 
-    utterance.onstart = () => setIsSpeaking(true);
-    utterance.onend = () => setIsSpeaking(false);
-    utterance.onerror = () => setIsSpeaking(false);
+    try {
+      setIsSpeaking(true);
 
-    window.speechSynthesis.speak(utterance);
-  }, [enabled, selectedVoice, rate, pitch]);
+      // Call backend TTS API
+      const response = await fetch('http://localhost:8000/api/tts', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ text }),
+      });
+
+      if (!response.ok) {
+        throw new Error('TTS request failed');
+      }
+
+      // Get audio blob
+      const audioBlob = await response.blob();
+      const audioUrl = URL.createObjectURL(audioBlob);
+
+      // Create and play audio
+      const audio = new Audio(audioUrl);
+      audioRef.current = audio;
+
+      audio.onended = () => {
+        setIsSpeaking(false);
+        URL.revokeObjectURL(audioUrl);
+        audioRef.current = null;
+      };
+
+      audio.onerror = () => {
+        setIsSpeaking(false);
+        URL.revokeObjectURL(audioUrl);
+        audioRef.current = null;
+      };
+
+      await audio.play();
+    } catch (error) {
+      console.error('TTS error:', error);
+      setIsSpeaking(false);
+    }
+  }, [enabled]);
 
   const stop = useCallback(() => {
-    window.speechSynthesis.cancel();
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+    }
     setIsSpeaking(false);
   }, []);
 
@@ -77,13 +77,6 @@ export function useSpeechSynthesis(): UseSpeechSynthesisReturn {
     speak,
     stop,
     isSpeaking,
-    voices,
-    selectedVoice,
-    setSelectedVoice,
-    rate,
-    setRate,
-    pitch,
-    setPitch,
     enabled,
     setEnabled,
   };

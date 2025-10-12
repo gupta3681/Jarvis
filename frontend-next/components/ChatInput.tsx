@@ -42,19 +42,22 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
 
   // Auto-send when listening stops and we have a transcript
   useEffect(() => {
-    if (!isListening && transcript && transcript !== previousTranscriptRef.current && autoSendEnabled) {
-      // Small delay to ensure transcript is complete
-      const timer = setTimeout(() => {
-        if (transcript.trim()) {
-          handleSend();
-        }
-      }, 300);
-      
-      return () => clearTimeout(timer);
-    }
-    
-    if (isListening) {
-      previousTranscriptRef.current = transcript;
+    // When listening stops and we have a new transcript
+    if (!isListening && transcript && transcript.trim() && autoSendEnabled) {
+      // Check if this is a new transcript (not the same as before)
+      if (transcript !== previousTranscriptRef.current) {
+        console.log('[Auto-send] Triggered with transcript:', transcript);
+        previousTranscriptRef.current = transcript;
+        
+        // Small delay to ensure transcript is complete
+        const timer = setTimeout(() => {
+          if (transcript.trim()) {
+            handleSend();
+          }
+        }, 500);
+        
+        return () => clearTimeout(timer);
+      }
     }
   }, [isListening, transcript, autoSendEnabled, handleSend]);
 

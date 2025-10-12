@@ -1,9 +1,12 @@
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from queue import Queue, Empty
 import asyncio
 from typing import Dict
 import json
+import os
+from openai import OpenAI
 from config import JarvisConfig
 from graph import create_graph
 from langchain_core.messages import HumanMessage
@@ -11,6 +14,9 @@ from memory.core_memory import CoreMemory
 
 
 app = FastAPI(title="Jarvis Personal Assistant API")
+
+# Initialize OpenAI client
+openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 # CORS middleware
 app.add_middleware(
@@ -84,6 +90,46 @@ async def get_core_memory(user_id: str = "default_user"):
             "user_id": user_id,
             "core_memory": core_memory.core
         }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+
+@app.post("/api/tts")
+async def text_to_speech(request: dict):
+    """
+    Convert text to speech using OpenAI TTS.
+    
+    Args:
+        request: JSON with 'text' field
+    
+    Returns:
+        Audio stream (MP3)
+    """
+    try:
+        text = request.get("text", "")
+        if not text:
+            return {"success": False, "error": "No text provided"}
+        
+        # Generate speech using OpenAI TTS
+        response = openai_client.audio.speech.create(
+            model="gpt-4o-mini-tts",
+            voice="alloy",  # Options: alloy, echo, fable, onyx, nova, shimmer
+            input=text,
+            speed=1.0
+        )
+        
+        # Stream the audio response
+        return StreamingResponse(
+            response.iter_bytes(),
+            media_type="audio/mpeg",
+            headers={
+                "Content-Disposition": "attachment; filename=speech.mp3"
+            }
+        )
+    
     except Exception as e:
         return {
             "success": False,
