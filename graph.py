@@ -71,7 +71,7 @@ async def tool_calling_node(state: AgentState, config: RunnableConfig):
     return {"messages": [response], "iteration_count": iteration_count + 1}
 
 
-def tool_execution_node(state: AgentState, config: RunnableConfig):
+async def tool_execution_node(state: AgentState, config: RunnableConfig):
     """Node that executes the tool calls."""
     jarvis_config = get_config_from_runnable(config)
     
@@ -91,7 +91,12 @@ def tool_execution_node(state: AgentState, config: RunnableConfig):
                 jarvis_config.send_message(f"⚙️ Executing tool: {tool_name}", "node")
             
             tool = tools[tool_name]
-            result = tool.invoke(tool_call["args"])
+            
+            # Use ainvoke for async tools, invoke for sync tools
+            if tool_name == "log_workout":
+                result = await tool.ainvoke(tool_call["args"], config)
+            else:
+                result = tool.invoke(tool_call["args"])
             
             if jarvis_config:
                 jarvis_config.send_message(f"✅ Tool result: {result}", "node")

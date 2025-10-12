@@ -7,7 +7,8 @@ from typing import Optional
 import os
 from dotenv import load_dotenv
 from langchain_community.tools.tavily_search import TavilySearchResults
-
+from subgraphs.workout_handler import workout_handler_graph
+from langchain_core.messages import HumanMessage
 from memory.core_memory import get_core_memory
 from config import JarvisConfig
 
@@ -181,31 +182,38 @@ def log_food(food_description: str, config: Optional[RunnableConfig] = None) -> 
 
 
 @tool
-def log_workout(workout_description: str, config: Optional[RunnableConfig] = None) -> str:
+async def log_workout(workout_description: str, config: Optional[RunnableConfig] = None) -> str:
     """
-    Log workout activity. Takes a description of the workout.
+    Log workout activity. Invokes a specialized subgraph to gather details and log the workout.
     Example: 'Running 5km, 30 minutes' or 'Bench press 3x10 @ 60kg'
+    
+    This tool uses LangGraph interrupts to ask clarifying questions.
+    The subgraph will handle the conversation internally.
     """
-    # user_id = get_user_id_from_config(config)
-    # file_path = Path(f"workout_log_{user_id}.xlsx")
+
     
-    # # Create or load workbook
-    # if file_path.exists():
-    #     wb = openpyxl.load_workbook(file_path)
-    #     ws = wb.active
-    # else:
-    #     wb = openpyxl.Workbook()
-    #     ws = wb.active
-    #     ws.append(["Timestamp", "Workout Description", "Notes"])
+    # Initialize state
+    state = {
+        "messages": [HumanMessage(content=workout_description)],
+        "workout_data": {},
+        "clarification_needed": True,
+        "iteration_count": 0,
+        "is_complete": False,
+    }
     
-    # # Add entry
-    # timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    # ws.append([timestamp, workout_description, "Auto-logged"])
+    # Invoke the workout handler subgraph - it will inherit the parent's checkpointer
+    # and thread_id automatically through the config
+    result = await workout_handler_graph.ainvoke(state, config)
     
-    # wb.save(file_path)
+    print(f"[DEBUG] log_workout result keys: {result.keys()}")
     
-    print("Pass through for now ")
-    return f"Logged workout: {workout_description}"
+    ## We don't need to handle interrupts here, the main graph will handle it
+    
+    # Extract the final response
+    messages = result.get("messages", [])
+    final_message = messages[-1].content if messages else "Workout logged successfully"
+    
+    return final_message
 
 
 @tool 

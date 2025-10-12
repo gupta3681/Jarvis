@@ -10,6 +10,7 @@ from openai import OpenAI
 from config import JarvisConfig
 from graph import create_graph
 from langchain_core.messages import HumanMessage
+from langgraph.types import Command
 from memory.core_memory import CoreMemory
 
 
@@ -177,30 +178,49 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
             # Send acknowledgment
             config.send_message(f"Processing: {user_input}", "user")
             
-            # Run the graph with config and thread_id for conversation history
-            # Use session_id as thread_id to maintain conversation per session
-            initial_state = {
-                "messages": [HumanMessage(content=user_input)],
-                "iteration_count": 0
-            }
-            
             # Add thread_id to config for checkpointer
             runnable_config = config.to_runnable_config()
             runnable_config["configurable"]["thread_id"] = session_id
             
-            # Execute graph asynchronously
-            result = await graph.ainvoke(
-                initial_state,
-                runnable_config
-            )
+            # Check if there's an active interrupt to resume
+            state = graph.get_state(runnable_config)
+            has_interrupt = bool(state.next)  # If state.next exists, graph is paused
             
-            # Send final response (only the last AI message to user)
-            # Skip ToolMessages and intermediate AI messages with tool_calls
-            for msg in reversed(result["messages"]):
-                if type(msg).__name__ == "AIMessage" and hasattr(msg, "content") and msg.content:
-                    # This is the final AI response to the user
-                    config.send_message(msg.content, "assistant")
-                    break
+            if has_interrupt:
+                # Resume the interrupted graph - pass user input as resume value
+                # This will be returned by the interrupt() call in the subgraph
+                print(f"[DEBUG] Resuming interrupted graph with: {user_input}")
+                result = await graph.ainvoke(
+                    Command(resume=user_input),
+                    runnable_config
+                )
+            else:
+                # Start fresh with new message
+                initial_state = {
+                    "messages": [HumanMessage(content=user_input)],
+                    "iteration_count": 0
+                }
+                result = await graph.ainvoke(
+                    initial_state,
+                    runnable_config
+                )
+            
+            print(f"[DEBUG] Result keys: {result.keys()}")
+            
+            # Send response to user - either interrupt question or final answer
+            if "__interrupt__" in result:
+                # Graph was interrupted - send the question to the user
+                interrupts = result["__interrupt__"]
+                print(f"[DEBUG] Graph interrupted: {interrupts}")
+                if interrupts:
+                    interrupt_value = interrupts[0].value if hasattr(interrupts[0], 'value') else interrupts[0]
+                    config.send_message(str(interrupt_value), "assistant")
+            else:
+                # Graph completed - send the final AI message
+                for msg in reversed(result["messages"]):
+                    if type(msg).__name__ == "AIMessage" and hasattr(msg, "content") and msg.content:
+                        config.send_message(msg.content, "assistant")
+                        break
             
     except WebSocketDisconnect:
         print(f"[WS] Client disconnected - session_id: {session_id}")
