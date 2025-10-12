@@ -32,6 +32,8 @@ workout_log.xlsx
 google-sheets-credentials.json
 *-credentials.json
 
+.json
+
 # Logs
 *.log
 
