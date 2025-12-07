@@ -6,11 +6,12 @@ from langchain_core.runnables import RunnableConfig
 from typing import TypedDict, Annotated, Sequence, Optional
 from datetime import datetime
 
-from tools.tools import get_tools
+from tools.tools import get_tools, retrieve_relevant_memories
 from config import JarvisConfig
 from memory.core_memory import get_core_memory
 from llm import get_conversation_llm
-from prompts.main_agent_prompt import AGENT_PROMPT
+from prompts.main_agent_prompt import build_agent_prompt
+from tool_config import is_tool_enabled
 
 
 class AgentState(TypedDict):
@@ -43,6 +44,22 @@ async def tool_calling_node(state: AgentState, config: RunnableConfig):
     
     messages = list(state["messages"])
     
+    # Auto-inject relevant episodic memories based on user's latest message
+    # Only on first iteration and if episodic memory is enabled
+    relevant_memories = ""
+    if iteration_count == 0 and is_tool_enabled("episodic_memory"):
+        # Get the user's message to search for relevant memories
+        user_message = ""
+        for msg in reversed(messages):
+            if isinstance(msg, HumanMessage):
+                user_message = msg.content
+                break
+        
+        if user_message:
+            relevant_memories = retrieve_relevant_memories(user_message, user_id, limit=5)
+            if relevant_memories and jarvis_config:
+                jarvis_config.send_message(f"💭 Found relevant memories", "node")
+    
     # Debug: Print message types to diagnose ordering issue
     if jarvis_config and jarvis_config.verbose:
         msg_types = [type(m).__name__ for m in messages]
@@ -51,10 +68,14 @@ async def tool_calling_node(state: AgentState, config: RunnableConfig):
     llm = get_conversation_llm()
     llm_with_tools = llm.bind_tools(get_tools())
     
-    # Use partial to properly inject core memory into the system prompt
-    # This ensures core_memory is set once and doesn't interfere with message ordering
-    prompt_with_memory = AGENT_PROMPT.partial(
+    # Build prompt dynamically based on current tool config
+    # This ensures tool toggles take effect without server restart
+    agent_prompt = build_agent_prompt()
+    
+    # Use partial to properly inject core memory and relevant memories into the system prompt
+    prompt_with_memory = agent_prompt.partial(
         core_memory=core_context if core_context else "No core memory set yet.", 
+        relevant_memories=relevant_memories if relevant_memories else "No relevant memories found for this query.",
         current_date=datetime.now().strftime("%Y-%m-%d"),
         current_time=datetime.now().strftime("%H:%M:%S")
     )

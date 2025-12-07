@@ -1,5 +1,6 @@
 import { Trash2, Circle, Sparkles, Power, Wifi, Volume2, VolumeX } from 'lucide-react';
 import { CoreMemoryPanel } from './CoreMemoryPanel';
+import { ToolConfigPanel } from './ToolConfigPanel';
 
 interface SidebarProps {
   isConnected: boolean;
@@ -80,6 +81,12 @@ export function Sidebar({ isConnected, onClearChat, onDisconnect, onConnect, tts
 
       {/* Spacer */}
       <div className="flex-1 overflow-y-auto">
+        {/* Tool Configuration */}
+        <ToolConfigPanel />
+        
+        {/* Divider */}
+        <div className="mx-6 border-t border-white/10" />
+        
         {/* Core Memory Display */}
         <CoreMemoryPanel />
       </div>

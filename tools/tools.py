@@ -7,12 +7,16 @@ from typing import Optional
 import os
 from dotenv import load_dotenv
 from langchain_community.tools.tavily_search import TavilySearchResults
-from subgraphs.workout_handler import workout_handler_graph
-from subgraphs.nutrition_handler import nutrition_handler_graph
-from subgraphs.gmail_handler import gmail_handler_graph
 from langchain_core.messages import HumanMessage
 from memory.core_memory import get_core_memory
 from config import JarvisConfig
+from tool_config import is_tool_enabled
+
+# Import all subgraphs and tools unconditionally
+# Filtering happens dynamically in get_tools() based on current config
+from subgraphs.workout_handler import workout_handler_graph
+from subgraphs.nutrition_handler import nutrition_handler_graph
+from subgraphs.gmail_handler import gmail_handler_graph
 from tools.calendar_tools import (
     create_calendar_event,
     list_calendar_events,
@@ -117,6 +121,97 @@ def search_memory(query: str, config: Optional[RunnableConfig] = None) -> str:
         return "No relevant memories found."
     
     return "Found memories:\n" + "\n".join(memories)
+
+
+@tool
+def list_all_memories(limit: int = 20, config: Optional[RunnableConfig] = None) -> str:
+    """
+    List all stored memories for the user.
+    Use this to see what has been remembered about the user.
+    
+    Args:
+        limit: Maximum number of memories to return (default 20)
+    """
+    user_id = get_user_id_from_config(config)
+    
+    all_mems = memory.get_all(user_id=user_id, limit=limit)
+    
+    if isinstance(all_mems, dict) and 'results' in all_mems:
+        results = all_mems['results']
+    else:
+        results = []
+    
+    if not results:
+        return "No memories stored yet."
+    
+    memories = []
+    for idx, m in enumerate(results, 1):
+        mem_text = m.get('memory', 'Unknown')
+        mem_id = m.get('id', '')[:8]
+        memories.append(f"{idx}. [{mem_id}] {mem_text}")
+    
+    return f"Stored memories ({len(results)} total):\n" + "\n".join(memories)
+
+
+@tool
+def delete_memory(memory_id: str, config: Optional[RunnableConfig] = None) -> str:
+    """
+    Delete a specific memory by its ID.
+    Use list_all_memories first to find the memory ID.
+    
+    Args:
+        memory_id: The ID of the memory to delete
+    """
+    try:
+        memory.delete(memory_id)
+        return f"Successfully deleted memory: {memory_id}"
+    except Exception as e:
+        return f"Error deleting memory: {str(e)}"
+
+
+@tool
+def update_memory(memory_id: str, new_content: str, config: Optional[RunnableConfig] = None) -> str:
+    """
+    Update an existing memory with new content.
+    Use list_all_memories first to find the memory ID.
+    
+    Args:
+        memory_id: The ID of the memory to update
+        new_content: The new content for the memory
+    """
+    try:
+        memory.update(memory_id, new_content)
+        return f"Successfully updated memory {memory_id} to: {new_content}"
+    except Exception as e:
+        return f"Error updating memory: {str(e)}"
+
+
+def retrieve_relevant_memories(query: str, user_id: str = "default_user", limit: int = 5) -> str:
+    """
+    Retrieve relevant memories for a query (non-tool function for auto-injection).
+    Returns formatted string of relevant memories or empty string if none found.
+    """
+    try:
+        results = memory.search(query, user_id=user_id, limit=limit)
+        
+        if isinstance(results, dict) and 'results' in results:
+            results = results['results']
+        
+        if not results:
+            return ""
+        
+        memories = []
+        for m in results:
+            if isinstance(m, dict) and 'memory' in m:
+                memories.append(f"- {m['memory']}")
+        
+        if not memories:
+            return ""
+        
+        return "\n".join(memories)
+    except Exception as e:
+        print(f"[WARNING] Error retrieving memories: {e}")
+        return ""
 
 
 @tool
@@ -390,29 +485,48 @@ def web_search(query: str, config: Optional[RunnableConfig] = None) -> str:
 
 
 def get_tools():
-    """Return list of all available tools."""
-    return [
-        # Core memory (instant access)
-        update_core_memory,
-        get_core_memory_info,
-        # Episodic memory (semantic search)
-        add_memory,
-        search_memory,
-        # Web search
-        web_search,
-        # Calendar
-        create_calendar_event,
-        list_calendar_events,
-        delete_calendar_event,
-        update_calendar_event,
-        # Handlers
-        nutrition_handler,
-        workout_handler,
-        gmail_handler,
-        # Agent control
-        think_tool,
-        task_complete
-    ]
+    """Return list of available tools based on tool_config settings."""
+    tools = []
+    
+    # Core memory (instant access)
+    if is_tool_enabled("core_memory"):
+        tools.extend([update_core_memory, get_core_memory_info])
+    
+    # Episodic memory (semantic search)
+    if is_tool_enabled("episodic_memory"):
+        tools.extend([add_memory, search_memory, list_all_memories, delete_memory, update_memory])
+    
+    # Web search
+    if is_tool_enabled("web_search"):
+        tools.append(web_search)
+    
+    # Calendar
+    if is_tool_enabled("calendar"):
+        tools.extend([
+            create_calendar_event,
+            list_calendar_events,
+            delete_calendar_event,
+            update_calendar_event
+        ])
+    
+    # Handlers
+    if is_tool_enabled("nutrition_handler"):
+        tools.append(nutrition_handler)
+    
+    if is_tool_enabled("workout_handler"):
+        tools.append(workout_handler)
+    
+    if is_tool_enabled("gmail_handler"):
+        tools.append(gmail_handler)
+    
+    # Agent control
+    if is_tool_enabled("think_tool"):
+        tools.append(think_tool)
+    
+    if is_tool_enabled("task_complete"):
+        tools.append(task_complete)
+    
+    return tools
 
 
 

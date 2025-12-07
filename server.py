@@ -1,9 +1,10 @@
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
 from queue import Queue, Empty
 import asyncio
-from typing import Dict
+from typing import Dict, Optional
 import json
 import os
 from openai import OpenAI
@@ -12,6 +13,7 @@ from graph import create_graph
 from langchain_core.messages import HumanMessage
 from langgraph.types import Command
 from memory.core_memory import CoreMemory
+import tool_config
 
 
 app = FastAPI(title="Jarvis Personal Assistant API")
@@ -90,6 +92,101 @@ async def get_core_memory(user_id: str = "default_user"):
             "success": True,
             "user_id": user_id,
             "core_memory": core_memory.core
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+
+@app.get("/api/tool-config")
+async def get_tool_config():
+    """
+    Get the current tool configuration.
+    
+    Returns:
+        Tool configuration with enabled/disabled status for each tool
+    """
+    return {
+        "success": True,
+        "tools": tool_config.load_config(),
+        "enabled": tool_config.get_enabled_tools(),
+        "disabled": tool_config.get_disabled_tools()
+    }
+
+
+class ToolConfigUpdate(BaseModel):
+    tool_name: str
+    enabled: bool
+
+
+@app.post("/api/tool-config")
+async def update_tool_config(update: ToolConfigUpdate):
+    """
+    Update a tool's enabled/disabled status.
+    
+    Args:
+        update: ToolConfigUpdate with tool_name and enabled status
+    
+    Returns:
+        Updated tool configuration
+    
+    Note: Changes take effect immediately for new conversations.
+    Existing WebSocket sessions may need to reconnect.
+    """
+    try:
+        if update.tool_name not in tool_config.DEFAULT_CONFIG:
+            return {
+                "success": False,
+                "error": f"Unknown tool: {update.tool_name}",
+                "available_tools": list(tool_config.DEFAULT_CONFIG.keys())
+            }
+        
+        # Update the config (saves to file)
+        tool_config.update_tool(update.tool_name, update.enabled)
+        
+        return {
+            "success": True,
+            "tool_name": update.tool_name,
+            "enabled": update.enabled,
+            "message": f"Tool '{update.tool_name}' {'enabled' if update.enabled else 'disabled'}. Reconnect for changes to take effect."
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+
+@app.post("/api/tool-config/bulk")
+async def bulk_update_tool_config(updates: Dict[str, bool]):
+    """
+    Update multiple tools at once.
+    
+    Args:
+        updates: Dict mapping tool names to enabled status
+    
+    Returns:
+        Updated tool configuration
+    """
+    try:
+        updated = []
+        errors = []
+        
+        for tool_name, enabled in updates.items():
+            if tool_name not in tool_config.DEFAULT_CONFIG:
+                errors.append(f"Unknown tool: {tool_name}")
+                continue
+            
+            tool_config.update_tool(tool_name, enabled)
+            updated.append(tool_name)
+        
+        return {
+            "success": len(errors) == 0,
+            "updated": updated,
+            "errors": errors if errors else None,
+            "current_config": tool_config.load_config()
         }
     except Exception as e:
         return {
